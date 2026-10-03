@@ -1,0 +1,1 @@
+- [Next.js preview origins](next-dev-origins.md) — allow the exact Replit dev domain for proxied HMR; a wildcard alone did not work.
