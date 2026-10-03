@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [name, setName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +26,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         const response = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
+          body: JSON.stringify({ name, dateOfBirth, email, password }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Registration failed.");
@@ -83,6 +84,20 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Alex Morgan"
+                    className="h-12 w-full rounded-xl border border-black/15 bg-white px-4 text-[13px] outline-none transition focus:border-ink"
+                  />
+                </label>
+              )}
+              {register && (
+                <label className="block">
+                  <span className="mb-2 block text-[11px] font-bold">Date of birth</span>
+                  <input
+                    required
+                    type="date"
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={dateOfBirth}
+                    onChange={(event) => setDateOfBirth(event.target.value)}
                     className="h-12 w-full rounded-xl border border-black/15 bg-white px-4 text-[13px] outline-none transition focus:border-ink"
                   />
                 </label>

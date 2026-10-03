@@ -9,45 +9,53 @@ const details = [
   {
     event_id: "20000000-0000-4000-8000-000000000001",
     image_url: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=1400&q=85",
-    description: "A late-night collision of live music, open-air food stalls, and art installations. Come hungry, leave with a new favorite band.",
-    tags: ["Live music", "Nightlife", "Outdoor"],
-    cast: ["Mira Sol", "Glass Harbour", "DJ Vela"],
+    description: "A special screening of Imtiaz Ali's musical romance, with a big-screen sound mix and a celebration of its celebrated soundtrack.",
+    tags: ["Bollywood", "Special screening", "Hindi cinema"],
+    director: "Imtiaz Ali",
+    lead_artists: ["Ranbir Kapoor", "Nargis Fakhri"],
+    music_director: "A. R. Rahman",
     faqs: [
-      { question: "Are doors open all night?", answer: "Doors open at 6:30 PM. Re-entry is not available." },
-      { question: "Is this event 18+?", answer: "Guests must be 18 or older and bring a valid photo ID." }
+      { question: "What language is the film in?", answer: "The film is in Hindi with English subtitles." },
+      { question: "When do doors open?", answer: "Doors open 45 minutes before the screening." }
     ]
   },
   {
     event_id: "20000000-0000-4000-8000-000000000002",
     image_url: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1400&q=85",
-    description: "Avery Park brings the new record to the stage for one vivid, full-band night in Los Angeles.",
-    tags: ["Concert", "Indie", "All ages"],
-    cast: ["Avery Park", "June Arcade"],
+    description: "Experience Prashanth Neel's high-energy Kannada action film on the big screen, with a specially tuned presentation of Ravi Basrur's score.",
+    tags: ["Sandalwood", "Kannada cinema", "Special screening"],
+    director: "Prashanth Neel",
+    lead_artists: ["Yash", "Srinidhi Shetty", "Sanjay Dutt"],
+    music_director: "Ravi Basrur",
     faqs: [
-      { question: "When do doors open?", answer: "Doors open one hour before showtime." },
-      { question: "Can I transfer my ticket?", answer: "Tickets can be transferred from your account before the event." }
+      { question: "What language is the film in?", answer: "The film is in Kannada with English subtitles." },
+      { question: "When do doors open?", answer: "Doors open 45 minutes before the screening." }
     ]
   },
   {
     event_id: "20000000-0000-4000-8000-000000000003",
     image_url: "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1400&q=85",
-    description: "A garden after dark, built from live electronic sets, immersive light, and a dance floor under the open sky.",
-    tags: ["Electronic", "Festival", "Outdoor"],
-    cast: ["Lumen", "North Star", "Iris Echo"],
+    description: "Celebrate Atlee's action spectacle in a premium screening, featuring Shah Rukh Khan, Nayanthara, and Vijay Sethupathi.",
+    tags: ["Bollywood", "Hindi cinema", "Special screening"],
+    director: "Atlee",
+    lead_artists: ["Shah Rukh Khan", "Nayanthara", "Vijay Sethupathi"],
+    music_director: "Anirudh Ravichander",
     faqs: [
-      { question: "Is the event outdoors?", answer: "The main stage is outdoors. Please check the forecast and dress comfortably." },
-      { question: "Are food and drinks available?", answer: "Food and non-alcoholic drinks are available from local vendors." }
+      { question: "What language is the film in?", answer: "The film is in Hindi with English subtitles." },
+      { question: "When do doors open?", answer: "Doors open 45 minutes before the screening." }
     ]
   },
   {
     event_id: "20000000-0000-4000-8000-000000000004",
     image_url: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=1400&q=85",
-    description: "A beloved classic on a giant screen, with a city skyline for a backdrop. Bring a blanket and settle in.",
-    tags: ["Film", "Outdoor", "Date night"],
-    cast: ["Special screening"],
+    description: "Return to Rishab Shetty's atmospheric Kannada folklore film in a dedicated big-screen presentation of its story, performances, and score.",
+    tags: ["Sandalwood", "Kannada cinema", "Special screening"],
+    director: "Rishab Shetty",
+    lead_artists: ["Rishab Shetty", "Sapthami Gowda", "Kishore"],
+    music_director: "B. Ajaneesh Loknath",
     faqs: [
-      { question: "Can I bring a blanket?", answer: "Yes, blankets are welcome. Low-profile chairs are also permitted." },
-      { question: "What happens if it rains?", answer: "If the screening is postponed, ticket holders will be notified by email." }
+      { question: "What language is the film in?", answer: "The film is in Kannada with English subtitles." },
+      { question: "When do doors open?", answer: "Doors open 45 minutes before the screening." }
     ]
   }
 ];
@@ -64,7 +72,11 @@ try {
     reviews.createIndex({ event_id: 1, user_id: 1 }, { unique: true }),
   ]);
   await Promise.all(details.map(({ event_id, ...document }) =>
-    collection.updateOne({ event_id }, { $set: { event_id, ...document } }, { upsert: true })
+    collection.updateOne(
+      { event_id },
+      { $set: { event_id, ...document }, $unset: { cast: "" } },
+      { upsert: true },
+    )
   ));
   console.log(`Seeded ${details.length} event detail documents.`);
 } finally {

@@ -1,0 +1,29 @@
+I need to update the application with the following features and modifications. Please execute these changes step-by-step:
+
+1. LOCALIZATION & DATA SEEDING
+- Update all UI currency formatting to use Indian Rupees (₹).
+- Seed the PostgreSQL `venues` table with Indian locations (e.g., Bengaluru, Mumbai, Hyderabad).
+- Update the MongoDB `event_details` seeding to feature Bollywood and Sandalwood metadata (include fields for 'director', 'lead_artists', 'music_director'). Display these prominently on the Event Details page.
+
+2. DATABASE SCHEMA UPDATES (PostgreSQL)
+- ALTER the `users` table to add a `date_of_birth` DATE column.
+- Create a new table called `login_history` with columns: `id` (UUID PK), `user_id` (FK to users), `login_time` (TIMESTAMP default NOW()), and `ip_address` (VARCHAR).
+- Create a seed script (or update the existing one) to insert a default Admin account: 
+  Email: admin@demo.com
+  Password Hash: (hash of 'Admin@123')
+  Role: 'Admin'
+  DOB: '1990-01-01'
+
+3. AGE RESTRICTION LOGIC
+- Update the registration form to require Date of Birth.
+- In the booking API route, calculate the user's age based on their DOB. If they are under 18, return a 403 Forbidden error with a message: "You must be 18 or older to book tickets."
+
+4. MULTIPLE SEAT BOOKING
+- Modify the Seat Map UI to allow selecting multiple seats at once (store as an array of strings).
+- Update the Redis locking API to lock multiple keys in a single request.
+- Update the PostgreSQL checkout transaction to insert multiple rows into the `bookings` table for a single checkout session, calculating the total price (base_price * number of seats).
+
+5. POST-BOOKING FLOW & EMAIL AUTOMATION
+- Remove any "review" prompts from the checkout or booking flow.
+- On 'SUCCESS' payment simulation, redirect the user to a new page: `/ticket/[event_id]/[user_id]` (or passing the booking IDs). This page should act as a digital ticket confirmation displaying the event name, selected seats, and total amount paid.
+- Install `nodemailer`. In the successful checkout API route, configure Nodemailer using `ethereal.email` (test account) to send a mock confirmation email to the user. Log the `nodemailer.getTestMessageUrl(info)` to the console so I can click it and view the fake email during my demo.

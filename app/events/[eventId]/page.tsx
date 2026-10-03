@@ -3,8 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, Sparkles, Ticket } from "lucide-react";
 import { SeatBooking } from "@/components/seat-booking";
-import { EventReviews } from "@/components/event-reviews";
 import { getEvent } from "@/lib/queries";
+import { formatINR } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +70,7 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
             <div className="mt-7 space-y-3 text-[12px] font-semibold text-white/70">
               <p className="flex items-center gap-2"><CalendarDays size={15} className="text-lime" /> {formattedDate}</p>
               <p className="flex items-center gap-2"><MapPin size={15} className="text-lime" /> {event.venue_name} · {event.location}</p>
-              <p className="flex items-center gap-2"><Ticket size={15} className="text-lime" /> From ${Number(event.base_price).toFixed(2)} · {event.available_seats} seats available</p>
+              <p className="flex items-center gap-2"><Ticket size={15} className="text-lime" /> From {formatINR(event.base_price)} · {event.available_seats} seats available</p>
             </div>
           </div>
           {event.tags?.length ? (
@@ -91,12 +91,31 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
             <p className="mt-4 text-[13px] leading-7 text-ink/65">
               {event.description || `${event.title} is coming to ${event.venue_name}. Make plans, pick your seat, and be there when it happens.`}
             </p>
-            {event.cast?.length ? (
-              <div className="mt-6 border-t border-black/10 pt-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-ink/40">Featuring</p>
-                <p className="mt-2 text-[12px] font-bold">{event.cast.join(" · ")}</p>
+            {(event.director || event.lead_artists?.length || event.music_director) && (
+              <div className="mt-6 rounded-2xl bg-[#f4f3ef] p-4 sm:p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-ink/40">Film credits</p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  {event.director && (
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-ink/40">Director</p>
+                      <p className="mt-1 text-[12px] font-bold">{event.director}</p>
+                    </div>
+                  )}
+                  {event.lead_artists?.length ? (
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-ink/40">Lead artists</p>
+                      <p className="mt-1 text-[12px] font-bold">{event.lead_artists.join(" · ")}</p>
+                    </div>
+                  ) : null}
+                  {event.music_director && (
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-ink/40">Music director</p>
+                      <p className="mt-1 text-[12px] font-bold">{event.music_director}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : null}
+            )}
           </section>
           {event.faqs?.length ? (
             <section className="rounded-[22px] border border-black/10 bg-white p-6 sm:p-8">
@@ -115,7 +134,6 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
               </div>
             </section>
           ) : null}
-          <EventReviews eventId={event.event_id} />
         </div>
         <SeatBooking event={event} />
       </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Download, RotateCw } from "lucide-react";
+import { formatINR } from "@/lib/format";
 
 type SalesRow = {
   event_id: string;
@@ -13,8 +14,6 @@ type SalesRow = {
   tickets_sold: number;
   total_revenue: string;
 };
-
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 export function AdminSales() {
   const [rows, setRows] = useState<SalesRow[]>([]);
@@ -62,7 +61,7 @@ export function AdminSales() {
       <div className="mt-9 grid gap-3 sm:grid-cols-3">
         <SummaryCard label="Events tracked" value={String(rows.length)} />
         <SummaryCard label="Tickets sold" value={totalTickets.toLocaleString("en-US")} />
-        <SummaryCard label="Gross revenue" value={currency.format(totalRevenue)} />
+        <SummaryCard label="Gross revenue" value={formatINR(totalRevenue)} />
       </div>
 
       <section className="mt-8 overflow-hidden rounded-[20px] border border-black/10 bg-white">
@@ -102,7 +101,7 @@ export function AdminSales() {
                     <td className="px-5 py-4 text-ink/55">{row.venue_name}<span className="mt-1 block text-[10px]">{row.location}</span></td>
                     <td className="px-5 py-4 text-ink/55">{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(row.start_time))}</td>
                     <td className="px-5 py-4 text-right font-bold">{Number(row.tickets_sold).toLocaleString("en-US")}</td>
-                    <td className="px-5 py-4 text-right font-black sm:px-7">{currency.format(Number(row.total_revenue))}</td>
+                    <td className="px-5 py-4 text-right font-black sm:px-7">{formatINR(row.total_revenue)}</td>
                   </tr>
                 )) : (
                   <tr><td colSpan={5} className="px-7 py-12 text-center text-[12px] font-medium text-ink/45">No event sales to show yet.</td></tr>

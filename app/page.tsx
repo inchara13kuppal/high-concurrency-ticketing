@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, CalendarDays, MoveRight, Sparkles } from "lucide-react";
 import { EventCard } from "@/components/event-card";
 import { getUpcomingEvents, type EventRecord } from "@/lib/queries";
+import { formatINR } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,7 @@ export default async function HomePage() {
                     {featured.description && <p className="mt-5 max-w-[440px] text-[13px] leading-6 text-ink/60">{featured.description}</p>}
                   </div>
                   <div className="mt-8 flex items-center justify-between border-t border-black/10 pt-5">
-                    <span className="text-[12px] font-semibold text-ink/60">From <strong className="text-ink">${Number(featured.base_price).toFixed(2)}</strong></span>
+                    <span className="text-[12px] font-semibold text-ink/60">From <strong className="text-ink">{formatINR(featured.base_price)}</strong></span>
                     <span className="inline-flex items-center gap-2 text-[12px] font-black">Pick your seat <MoveRight size={16} className="transition group-hover:translate-x-1" /></span>
                   </div>
                 </div>

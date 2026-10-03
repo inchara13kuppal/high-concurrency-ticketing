@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import type { EventRecord } from "@/lib/queries";
+import { formatINR } from "@/lib/format";
 
 function formatDate(dateValue: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -48,7 +49,7 @@ export function EventCard({ event, index = 0 }: { event: EventRecord; index?: nu
           </div>
         </div>
         <p className="shrink-0 pt-0.5 text-[12px] font-bold text-ink/80">
-          ${Number(event.base_price).toFixed(0)}<span className="font-medium text-ink/45">+</span>
+          {formatINR(event.base_price)}<span className="font-medium text-ink/45">+</span>
         </p>
       </div>
       {event.tags?.length ? (

@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Check, Clock3, LockKeyhole, RotateCw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatINR } from "@/lib/format";
 import type { EventRecord } from "@/lib/queries";
 
 type SeatSnapshot = {
@@ -17,12 +17,11 @@ export function SeatBooking({ event }: { event: EventRecord }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<SeatSnapshot | null>(null);
-  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [confirmation, setConfirmation] = useState("");
   const [lockExpiresAt, setLockExpiresAt] = useState<number | null>(null);
 
   const refreshSeats = useCallback(async () => {
@@ -46,46 +45,52 @@ export function SeatBooking({ event }: { event: EventRecord }) {
   }, [refreshSeats]);
 
   useEffect(() => {
-    if (!lockExpiresAt || !selectedSeat) return;
+    if (!lockExpiresAt || !selectedSeats.length) return;
     const timeout = window.setTimeout(() => {
-      setSelectedSeat(null);
+      setSelectedSeats([]);
       setLockExpiresAt(null);
       setNotice("Your five-minute hold expired. Select the seat again to continue.");
       void refreshSeats();
     }, Math.max(0, lockExpiresAt - Date.now()));
     return () => window.clearTimeout(timeout);
-  }, [lockExpiresAt, selectedSeat, refreshSeats]);
+  }, [lockExpiresAt, selectedSeats, refreshSeats]);
 
   const sold = useMemo(() => new Set(snapshot?.soldSeats ?? []), [snapshot]);
+  const selectedSeatSet = useMemo(() => new Set(selectedSeats), [selectedSeats]);
   const locks = useMemo(
     () => new Map((snapshot?.lockedSeats ?? []).map((seat) => [seat.seatNumber, seat.ownedByYou])),
     [snapshot],
   );
   const seatCount = snapshot?.capacity ?? event.total_capacity;
   const ticketPrice = Number(event.base_price);
+  const totalPrice = ticketPrice * selectedSeats.length;
 
-  async function release(seatNumber: string) {
-    await fetch("/api/seats/release", {
+  async function release(seatNumbers: string[]) {
+    const response = await fetch("/api/seats/release", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId: event.event_id, seatNumber }),
+      body: JSON.stringify({ eventId: event.event_id, seatNumbers }),
     });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not release those seats.");
   }
 
   async function chooseSeat(seatNumber: string) {
     setNotice("");
-    setConfirmation("");
     if (sold.has(seatNumber)) return;
 
-    if (selectedSeat === seatNumber) {
+    if (selectedSeatSet.has(seatNumber)) {
       setBusy(true);
       try {
-        await release(seatNumber);
-      } finally {
-        setSelectedSeat(null);
-        setLockExpiresAt(null);
-        setBusy(false);
+        await release([seatNumber]);
+        const remaining = selectedSeats.filter((seat) => seat !== seatNumber);
+        setSelectedSeats(remaining);
+        if (!remaining.length) setLockExpiresAt(null);
         void refreshSeats();
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not release that seat.");
+      } finally {
+        setBusy(false);
       }
       return;
     }
@@ -97,21 +102,19 @@ export function SeatBooking({ event }: { event: EventRecord }) {
 
     setBusy(true);
     try {
-      if (selectedSeat) await release(selectedSeat);
+      const nextSeats = [...selectedSeats, seatNumber].sort((left, right) => Number(left) - Number(right));
       const response = await fetch("/api/seats/lock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: event.event_id, seatNumber }),
+        body: JSON.stringify({ eventId: event.event_id, seatNumbers: nextSeats }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "That seat could not be held.");
-      setSelectedSeat(data.seatNumber);
+      setSelectedSeats(data.seatNumbers);
       setLockExpiresAt(Date.now() + data.expiresIn * 1000);
       await refreshSeats();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "That seat could not be held.");
-      setSelectedSeat(null);
-      setLockExpiresAt(null);
       void refreshSeats();
     } finally {
       setBusy(false);
@@ -119,27 +122,29 @@ export function SeatBooking({ event }: { event: EventRecord }) {
   }
 
   async function simulatePayment(paymentResult: "SUCCESS" | "FAILURE") {
-    if (!selectedSeat) return;
+    if (!selectedSeats.length) return;
     setBusy(true);
     setNotice("");
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: event.event_id, seatNumber: selectedSeat, paymentResult }),
+        body: JSON.stringify({ eventId: event.event_id, seatNumbers: selectedSeats, paymentResult }),
       });
       const data = await response.json();
       setModalOpen(false);
-      setSelectedSeat(null);
+      setSelectedSeats([]);
       setLockExpiresAt(null);
       if (!response.ok) {
         if (paymentResult === "FAILURE" && response.status === 402) {
-          setNotice(data.message || "Payment was not completed. The seat has been released.");
+          setNotice(data.message || "Payment was not completed. Your seats have been released.");
         } else {
           setNotice(data.error || "Checkout could not be completed.");
         }
       } else {
-        setConfirmation(`Ticket confirmed · Seat ${data.seatNumber} · Booking ${data.bookingId}`);
+        const bookingIds = Array.isArray(data.bookingIds) ? data.bookingIds.join("~") : "";
+        if (!bookingIds) throw new Error("Your tickets were confirmed, but the confirmation page could not be opened.");
+        router.push(`/ticket/${event.event_id}/${bookingIds}`);
       }
       await refreshSeats();
     } catch (error) {
@@ -183,7 +188,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
               const seatNumber = String(index + 1).padStart(3, "0");
               const isSold = sold.has(seatNumber);
               const heldByOther = locks.has(seatNumber) && !locks.get(seatNumber);
-              const isSelected = selectedSeat === seatNumber;
+              const isSelected = selectedSeatSet.has(seatNumber);
               const isOwnedLock = locks.get(seatNumber) === true;
               const disabled = isSold || heldByOther || busy;
               return (
@@ -193,7 +198,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
                   onClick={() => void chooseSeat(seatNumber)}
                   disabled={disabled}
                   aria-label={`Seat ${seatNumber}${isSold ? ", sold" : heldByOther ? ", held by another guest" : isSelected || isOwnedLock ? ", held by you" : ", available"}`}
-                  aria-pressed={isSelected || isOwnedLock}
+                  aria-pressed={isSelected}
                   className={[
                     "aspect-square rounded-full text-[9px] font-bold transition sm:text-[10px]",
                     isSold ? "cursor-not-allowed bg-ink text-white/65" :
@@ -216,28 +221,33 @@ export function SeatBooking({ event }: { event: EventRecord }) {
         </div>
       </div>
 
-      {(notice || confirmation) && (
+      {notice && (
         <div
-          role={notice ? "alert" : "status"}
-          className={`mt-6 flex items-start gap-2 rounded-xl px-4 py-3 text-[12px] font-semibold ${confirmation ? "bg-lime/40 text-ink" : "bg-red-50 text-red-700"}`}
+          role="alert"
+          className="mt-6 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700"
         >
-          {confirmation ? <Check size={16} className="mt-0.5 shrink-0" /> : <X size={15} className="mt-0.5 shrink-0" />}
-          <span>{confirmation || notice}</span>
+          <X size={15} className="mt-0.5 shrink-0" />
+          <span>{notice}</span>
         </div>
       )}
 
       <div className="mt-7 flex flex-col gap-4 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40">Ticket price</p>
-          <p className="mt-1 text-lg font-black">${ticketPrice.toFixed(2)} <span className="text-[11px] font-medium text-ink/45">per seat</span></p>
+          <p className="mt-1 text-lg font-black">{formatINR(ticketPrice)} <span className="text-[11px] font-medium text-ink/45">per seat</span></p>
+          {selectedSeats.length > 0 && (
+            <p className="mt-1 text-[11px] font-semibold text-ink/55">
+              {selectedSeats.length} {selectedSeats.length === 1 ? "seat" : "seats"} · {formatINR(totalPrice)} total
+            </p>
+          )}
         </div>
-        {selectedSeat ? (
+        {selectedSeats.length > 0 ? (
           <button
             onClick={() => setModalOpen(true)}
             disabled={busy}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-6 text-[12px] font-black text-white transition hover:bg-black/75 disabled:opacity-50"
           >
-            Continue with seat {selectedSeat} <ArrowRightIcon />
+            Continue with {selectedSeats.length} {selectedSeats.length === 1 ? "seat" : "seats"} <ArrowRightIcon />
           </button>
         ) : (
           <p className="text-[11px] font-medium text-ink/45">
@@ -246,7 +256,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
         )}
       </div>
 
-      {modalOpen && selectedSeat && (
+      {modalOpen && selectedSeats.length > 0 && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
@@ -266,8 +276,8 @@ export function SeatBooking({ event }: { event: EventRecord }) {
             <div className="mt-6 rounded-2xl border border-black/10 bg-white p-4">
               <p className="truncate text-[13px] font-bold">{event.title}</p>
               <div className="mt-3 flex items-center justify-between text-[11px] text-ink/55">
-                <span>Seat {selectedSeat} <span className="mx-1">·</span> 1 ticket</span>
-                <span className="font-black text-ink">${ticketPrice.toFixed(2)}</span>
+                <span className="max-w-[65%]">Seats {selectedSeats.join(", ")} <span className="mx-1">·</span> {selectedSeats.length} {selectedSeats.length === 1 ? "ticket" : "tickets"}</span>
+                <span className="font-black text-ink">{formatINR(totalPrice)}</span>
               </div>
             </div>
             <p className="mt-5 flex items-center gap-2 text-[11px] font-semibold text-ink/55">

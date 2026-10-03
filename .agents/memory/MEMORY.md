@@ -1,1 +1,2 @@
 - [Next.js preview origins](next-dev-origins.md) — allow the exact Replit dev domain for proxied HMR; a wildcard alone did not work.
+- [Ticket confirmation route IDs](ticket-route-ids.md) — use `~` between booking IDs; comma-separated IDs arrived as one invalid parameter in the proxied route.

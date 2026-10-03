@@ -22,7 +22,7 @@ export async function GET() {
          FROM event_sales_summary_view
         ORDER BY start_time DESC`,
     );
-    const header = ["Event", "Venue", "Location", "Start time", "Tickets sold", "Total revenue"];
+    const header = ["Event", "Venue", "Location", "Start time", "Tickets sold", "Total revenue (INR)"];
     const csv = [
       header.map(csvField).join(","),
       ...rows.map((row) =>

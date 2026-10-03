@@ -5,8 +5,21 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   email VARCHAR(320) NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role VARCHAR(32) NOT NULL DEFAULT 'Customer'
+  role VARCHAR(32) NOT NULL DEFAULT 'Customer',
+  date_of_birth DATE
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+
+CREATE TABLE IF NOT EXISTS login_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  login_time TIMESTAMP NOT NULL DEFAULT NOW(),
+  ip_address VARCHAR(45)
+);
+
+CREATE INDEX IF NOT EXISTS login_history_user_time_idx
+  ON login_history (user_id, login_time DESC);
 
 CREATE TABLE IF NOT EXISTS venues (
   venue_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -134,6 +147,147 @@ BEGIN
   VALUES (p_user_id, p_event_id, LPAD(v_seat_number::TEXT, 3, '0'), 'SUCCESS')
   RETURNING booking_id INTO v_booking_id;
 
+  RETURN v_booking_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION create_bookings(
+  p_user_id UUID,
+  p_event_id UUID,
+  p_seat_numbers VARCHAR[]
+)
+RETURNS TABLE(booking_id UUID, seat_number VARCHAR)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_capacity INTEGER;
+  v_available INTEGER;
+  v_start_time TIMESTAMPTZ;
+  v_date_of_birth DATE;
+  v_seat_numbers VARCHAR[];
+BEGIN
+  IF COALESCE(cardinality(p_seat_numbers), 0) = 0 THEN
+    RAISE EXCEPTION 'Select at least one seat'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM unnest(p_seat_numbers) AS requested(seat)
+     WHERE requested.seat IS NULL
+        OR requested.seat !~ '^[0-9]{1,4}$'
+  ) THEN
+    RAISE EXCEPTION 'Invalid seat number'
+      USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM unnest(p_seat_numbers) AS requested(seat)
+     WHERE requested.seat::INTEGER < 1
+  ) THEN
+    RAISE EXCEPTION 'Invalid seat number'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT ARRAY(
+    SELECT CASE
+             WHEN length(requested.seat::INTEGER::TEXT) < 3
+               THEN lpad(requested.seat::INTEGER::TEXT, 3, '0')
+             ELSE requested.seat::INTEGER::TEXT
+           END
+      FROM unnest(p_seat_numbers) WITH ORDINALITY AS requested(seat, position)
+     ORDER BY requested.position
+  )::VARCHAR[]
+    INTO v_seat_numbers;
+
+  IF cardinality(v_seat_numbers) <> (
+    SELECT COUNT(DISTINCT requested.seat)
+      FROM unnest(v_seat_numbers) AS requested(seat)
+  ) THEN
+    RAISE EXCEPTION 'Seat numbers must be unique'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT u.date_of_birth
+    INTO v_date_of_birth
+    FROM users u
+   WHERE u.user_id = p_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User not found'
+      USING ERRCODE = 'P0002';
+  END IF;
+  IF v_date_of_birth IS NULL THEN
+    RAISE EXCEPTION 'Add your date of birth before booking tickets'
+      USING ERRCODE = '42501';
+  END IF;
+  IF v_date_of_birth > CURRENT_DATE
+     OR EXTRACT(YEAR FROM age(CURRENT_DATE, v_date_of_birth)) < 18 THEN
+    RAISE EXCEPTION 'You must be 18 or older to book tickets.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT v.total_capacity, e.available_seats, e.start_time
+    INTO v_capacity, v_available, v_start_time
+    FROM events e
+    JOIN venues v ON v.venue_id = e.venue_id
+   WHERE e.event_id = p_event_id
+   FOR UPDATE OF e;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Event not found'
+      USING ERRCODE = 'P0002';
+  END IF;
+  IF v_start_time <= NOW() THEN
+    RAISE EXCEPTION 'Event is no longer available'
+      USING ERRCODE = 'P0002';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM unnest(v_seat_numbers) AS requested(seat)
+     WHERE requested.seat::INTEGER > v_capacity
+  ) THEN
+    RAISE EXCEPTION 'Seat number is outside the venue capacity'
+      USING ERRCODE = '22023';
+  END IF;
+  IF v_available < cardinality(v_seat_numbers) THEN
+    RAISE EXCEPTION 'Not enough seats remain for this event'
+      USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM bookings b
+     WHERE b.event_id = p_event_id
+       AND b.status = 'SUCCESS'
+       AND b.seat_number = ANY(v_seat_numbers)
+  ) THEN
+    RAISE EXCEPTION 'One or more seats have already been booked'
+      USING ERRCODE = '23505';
+  END IF;
+
+  RETURN QUERY
+    INSERT INTO bookings (user_id, event_id, seat_number, status)
+    SELECT p_user_id, p_event_id, requested.seat, 'SUCCESS'
+      FROM unnest(v_seat_numbers) AS requested(seat)
+     ORDER BY requested.seat::INTEGER
+    RETURNING bookings.booking_id, bookings.seat_number;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION create_booking(
+  p_user_id UUID,
+  p_event_id UUID,
+  p_seat_number VARCHAR
+)
+RETURNS UUID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_booking_id UUID;
+BEGIN
+  SELECT created.booking_id
+    INTO v_booking_id
+    FROM create_bookings(p_user_id, p_event_id, ARRAY[p_seat_number]::VARCHAR[]) AS created;
   RETURN v_booking_id;
 END;
 $$;

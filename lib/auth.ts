@@ -13,7 +13,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = credentials?.email?.trim().toLowerCase();
         const password = credentials?.password;
         if (!email || !password) return null;
@@ -26,6 +26,21 @@ export const authOptions: NextAuthOptions = {
         if (!user || !(await bcrypt.compare(password, user.password_hash))) {
           return null;
         }
+        const headers = request.headers ?? {};
+        const forwarded = headers["x-forwarded-for"];
+        const realIp = headers["x-real-ip"];
+        const rawIp = Array.isArray(forwarded)
+          ? forwarded[0]
+          : typeof forwarded === "string"
+            ? forwarded.split(",")[0]
+            : Array.isArray(realIp)
+              ? realIp[0]
+              : realIp;
+        const ipAddress = typeof rawIp === "string" ? rawIp.trim().slice(0, 45) || null : null;
+        await pool.query(
+          "INSERT INTO login_history (user_id, ip_address) VALUES ($1, $2)",
+          [user.user_id, ipAddress],
+        );
         return { id: user.user_id, name: user.name, email: user.email, role: user.role };
       },
     }),

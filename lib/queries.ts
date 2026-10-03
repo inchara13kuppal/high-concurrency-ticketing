@@ -14,7 +14,9 @@ export type EventRecord = {
   image_url?: string;
   description?: string;
   tags?: string[];
-  cast?: string[];
+  director?: string;
+  lead_artists?: string[];
+  music_director?: string;
   faqs?: { question: string; answer: string }[];
 };
 
