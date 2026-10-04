@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Download, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Download, Plus, RotateCw } from "lucide-react";
 import { formatINR } from "@/lib/format";
 
 type SalesRow = {
@@ -50,12 +50,20 @@ export function AdminSales() {
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-ink/45">Seatline / Admin</p>
           <h1 className="text-[clamp(2.7rem,6vw,5rem)] font-black leading-[0.88] tracking-[-0.08em]">Sales, at a glance.</h1>
         </div>
-        <a
-          href="/api/admin/sales.csv"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-[11px] font-black text-white transition hover:bg-black/75"
-        >
-          <Download size={14} /> Download CSV <ArrowUpRight size={13} />
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/events"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/15 bg-white px-5 text-[11px] font-black transition hover:border-ink"
+          >
+            <Plus size={14} /> Add event
+          </Link>
+          <a
+            href="/api/admin/sales.csv"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-[11px] font-black text-white transition hover:bg-black/75"
+          >
+            <Download size={14} /> Download CSV <ArrowUpRight size={13} />
+          </a>
+        </div>
       </div>
 
       <div className="mt-9 grid gap-3 sm:grid-cols-3">

@@ -33,11 +33,10 @@ export async function POST(request: Request) {
     if (ageError) return NextResponse.json({ error: ageError }, { status: 403 });
 
     const eventResult = await pool.query(
-      `SELECT v.total_capacity, e.available_seats
-         FROM events e
-         JOIN venues v ON v.venue_id = e.venue_id
-        WHERE e.event_id = $1
-          AND e.start_time > NOW()`,
+      `SELECT total_capacity, available_seats
+         FROM events
+        WHERE event_id = $1
+          AND start_time > NOW()`,
       [eventId],
     );
     const event = eventResult.rows[0];

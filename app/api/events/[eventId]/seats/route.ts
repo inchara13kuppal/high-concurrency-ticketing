@@ -16,10 +16,9 @@ export async function GET(
 
   try {
     const result = await pool.query(
-      `SELECT v.total_capacity
-         FROM events e
-         JOIN venues v ON v.venue_id = e.venue_id
-        WHERE e.event_id = $1`,
+      `SELECT total_capacity
+         FROM events
+        WHERE event_id = $1`,
       [eventId],
     );
     const capacity = result.rows[0]?.total_capacity as number | undefined;

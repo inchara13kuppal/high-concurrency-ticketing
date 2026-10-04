@@ -34,8 +34,33 @@ CREATE TABLE IF NOT EXISTS events (
   title VARCHAR(220) NOT NULL,
   start_time TIMESTAMPTZ NOT NULL,
   base_price NUMERIC(10, 2) NOT NULL CHECK (base_price >= 0),
+  total_capacity INTEGER NOT NULL CONSTRAINT events_total_capacity_positive CHECK (total_capacity > 0),
   available_seats INTEGER NOT NULL CHECK (available_seats >= 0)
 );
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS total_capacity INTEGER;
+
+UPDATE events e
+   SET total_capacity = v.total_capacity
+  FROM venues v
+ WHERE v.venue_id = e.venue_id
+   AND e.total_capacity IS NULL;
+
+ALTER TABLE events ALTER COLUMN total_capacity SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'events'::regclass
+       AND conname = 'events_total_capacity_positive'
+  ) THEN
+    ALTER TABLE events
+      ADD CONSTRAINT events_total_capacity_positive CHECK (total_capacity > 0);
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS bookings (
   booking_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,7 +141,7 @@ BEGIN
 
   v_seat_number := p_seat_number::INTEGER;
 
-  SELECT v.total_capacity, e.available_seats, e.start_time
+  SELECT e.total_capacity, e.available_seats, e.start_time
     INTO v_capacity, v_available, v_start_time
     FROM events e
     JOIN venues v ON v.venue_id = e.venue_id
@@ -134,7 +159,7 @@ BEGIN
   END IF;
 
   IF v_seat_number < 1 OR v_seat_number > v_capacity THEN
-    RAISE EXCEPTION 'Seat number is outside the venue capacity'
+    RAISE EXCEPTION 'Seat number is outside the event capacity'
       USING ERRCODE = '22023';
   END IF;
 
@@ -227,7 +252,7 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT v.total_capacity, e.available_seats, e.start_time
+  SELECT e.total_capacity, e.available_seats, e.start_time
     INTO v_capacity, v_available, v_start_time
     FROM events e
     JOIN venues v ON v.venue_id = e.venue_id
@@ -247,7 +272,7 @@ BEGIN
       FROM unnest(v_seat_numbers) AS requested(seat)
      WHERE requested.seat::INTEGER > v_capacity
   ) THEN
-    RAISE EXCEPTION 'Seat number is outside the venue capacity'
+    RAISE EXCEPTION 'Seat number is outside the event capacity'
       USING ERRCODE = '22023';
   END IF;
   IF v_available < cardinality(v_seat_numbers) THEN

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, Sparkles, Ticket } from "lucide-react";
+import { getServerSession } from "next-auth";
 import { SeatBooking } from "@/components/seat-booking";
+import { authOptions } from "@/lib/auth";
+import { getBookingAgeError } from "@/lib/age";
 import { getEvent } from "@/lib/queries";
 import { formatINR } from "@/lib/format";
 import { isUuid } from "@/lib/validation";
@@ -35,6 +38,10 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
     throw error;
   }
   if (!event) notFound();
+
+  const session = await getServerSession(authOptions);
+  const ageError = session?.user?.id ? await getBookingAgeError(session.user.id) : null;
+  const isUnderage = ageError === "You must be 18 or older to book tickets.";
 
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -135,7 +142,7 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
             </section>
           ) : null}
         </div>
-        <SeatBooking event={event} />
+        <SeatBooking event={event} isUnderage={isUnderage} />
       </div>
     </main>
   );

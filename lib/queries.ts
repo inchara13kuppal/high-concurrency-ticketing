@@ -23,7 +23,7 @@ export type EventRecord = {
 export async function getUpcomingEvents() {
   const { rows } = await pool.query<EventRecord>(
     `SELECT e.event_id, e.venue_id, e.title, e.start_time, e.base_price,
-            e.available_seats, v.total_capacity, v.name AS venue_name, v.location
+            e.available_seats, e.total_capacity, v.name AS venue_name, v.location
        FROM events e
        JOIN venues v ON v.venue_id = e.venue_id
       WHERE e.start_time > NOW()
@@ -47,7 +47,7 @@ export async function getUpcomingEvents() {
 export async function getEvent(eventId: string) {
   const { rows } = await pool.query<EventRecord>(
     `SELECT e.event_id, e.venue_id, e.title, e.start_time, e.base_price,
-            e.available_seats, v.total_capacity, v.name AS venue_name, v.location
+            e.available_seats, e.total_capacity, v.name AS venue_name, v.location
        FROM events e
        JOIN venues v ON v.venue_id = e.venue_id
       WHERE e.event_id = $1 AND e.start_time > NOW()`,

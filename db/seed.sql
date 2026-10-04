@@ -9,14 +9,15 @@ ON CONFLICT (venue_id) DO UPDATE
       total_capacity = EXCLUDED.total_capacity,
       location = EXCLUDED.location;
 
-INSERT INTO events (event_id, venue_id, title, start_time, base_price, available_seats)
+INSERT INTO events (event_id, venue_id, title, start_time, base_price, total_capacity, available_seats)
 VALUES
-  ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Rockstar: Special Big-Screen Screening', NOW() + INTERVAL '12 days', 699.00, 120),
-  ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'K.G.F: Chapter 2 — Special Screening', NOW() + INTERVAL '19 days', 899.00, 90),
-  ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000003', 'Jawan: A Big-Screen Celebration', NOW() + INTERVAL '26 days', 999.00, 100),
-  ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000004', 'Kantara: Special Screening', NOW() + INTERVAL '34 days', 599.00, 80)
+  ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Rockstar: Special Big-Screen Screening', NOW() + INTERVAL '12 days', 699.00, 120, 120),
+  ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'K.G.F: Chapter 2 — Special Screening', NOW() + INTERVAL '19 days', 899.00, 90, 90),
+  ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000003', 'Jawan: A Big-Screen Celebration', NOW() + INTERVAL '26 days', 999.00, 100, 100),
+  ('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000004', 'Kantara: Special Screening', NOW() + INTERVAL '34 days', 599.00, 80, 80)
 ON CONFLICT (event_id) DO UPDATE
   SET venue_id = EXCLUDED.venue_id,
       title = EXCLUDED.title,
       start_time = EXCLUDED.start_time,
-      base_price = EXCLUDED.base_price;
+      base_price = EXCLUDED.base_price,
+      total_capacity = EXCLUDED.total_capacity;

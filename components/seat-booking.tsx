@@ -13,7 +13,7 @@ type SeatSnapshot = {
   lockedSeats: { seatNumber: string; ownedByYou: boolean }[];
 };
 
-export function SeatBooking({ event }: { event: EventRecord }) {
+export function SeatBooking({ event, isUnderage }: { event: EventRecord; isUnderage: boolean }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [snapshot, setSnapshot] = useState<SeatSnapshot | null>(null);
@@ -76,6 +76,11 @@ export function SeatBooking({ event }: { event: EventRecord }) {
   }
 
   async function chooseSeat(seatNumber: string) {
+    if (isUnderage) {
+      alert("Access Denied: You must be 18 or older to book tickets.");
+      return;
+    }
+
     setNotice("");
     if (sold.has(seatNumber)) return;
 
@@ -88,7 +93,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
         if (!remaining.length) setLockExpiresAt(null);
         void refreshSeats();
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not release that seat.");
+        showBookingError(error instanceof Error ? error.message : "Could not release that seat.");
       } finally {
         setBusy(false);
       }
@@ -114,7 +119,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
       setLockExpiresAt(Date.now() + data.expiresIn * 1000);
       await refreshSeats();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "That seat could not be held.");
+      showBookingError(error instanceof Error ? error.message : "That seat could not be held.");
       void refreshSeats();
     } finally {
       setBusy(false);
@@ -139,7 +144,7 @@ export function SeatBooking({ event }: { event: EventRecord }) {
         if (paymentResult === "FAILURE" && response.status === 402) {
           setNotice(data.message || "Payment was not completed. Your seats have been released.");
         } else {
-          setNotice(data.error || "Checkout could not be completed.");
+          showBookingError(data.error || "Checkout could not be completed.");
         }
       } else {
         const bookingIds = Array.isArray(data.bookingIds) ? data.bookingIds.join("~") : "";
@@ -149,11 +154,19 @@ export function SeatBooking({ event }: { event: EventRecord }) {
       await refreshSeats();
     } catch (error) {
       setModalOpen(false);
-      setNotice(error instanceof Error ? error.message : "Checkout could not be completed.");
+      showBookingError(error instanceof Error ? error.message : "Checkout could not be completed.");
       await refreshSeats();
     } finally {
       setBusy(false);
     }
+  }
+
+  function showBookingError(message: string) {
+    if (message === "You must be 18 or older to book tickets.") {
+      alert("Access Denied: You must be 18 or older to book tickets.");
+      return;
+    }
+    setNotice(message);
   }
 
   return (
