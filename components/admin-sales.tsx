@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Download, Plus, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Download, Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { formatINR } from "@/lib/format";
 
 type SalesRow = {
@@ -19,6 +19,9 @@ export function AdminSales() {
   const [rows, setRows] = useState<SalesRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [deletingEventId, setDeletingEventId] = useState("");
 
   async function loadSales() {
     setLoading(true);
@@ -32,6 +35,26 @@ export function AdminSales() {
       setError(loadError instanceof Error ? loadError.message : "Could not load sales data.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function deleteEvent(row: SalesRow) {
+    if (!window.confirm(`Delete "${row.event_title}"? This cannot be undone.`)) return;
+    setActionError("");
+    setActionMessage("");
+    setDeletingEventId(row.event_id);
+    try {
+      const response = await fetch(`/api/admin/events/${encodeURIComponent(row.event_id)}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not delete this event.");
+      setActionMessage(`Deleted "${row.event_title}".`);
+      await loadSales();
+    } catch (deleteError) {
+      setActionError(deleteError instanceof Error ? deleteError.message : "Could not delete this event.");
+    } finally {
+      setDeletingEventId("");
     }
   }
 
@@ -94,31 +117,54 @@ export function AdminSales() {
                   <th className="px-5 py-3.5">Start time</th>
                   <th className="px-5 py-3.5 text-right">Tickets</th>
                   <th className="px-5 py-3.5 text-right sm:px-7">Revenue</th>
+                  <th className="px-5 py-3.5 text-right sm:px-7">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 text-[12px]">
                 {loading && !rows.length ? (
                   Array.from({ length: 4 }, (_, index) => (
                     <tr key={index}>
-                      {Array.from({ length: 5 }, (_, cell) => <td key={cell} className="px-5 py-5 sm:px-7"><span className="block h-3 animate-pulse rounded bg-black/5" /></td>)}
+                      {Array.from({ length: 6 }, (_, cell) => <td key={cell} className="px-5 py-5 sm:px-7"><span className="block h-3 animate-pulse rounded bg-black/5" /></td>)}
                     </tr>
                   ))
                 ) : rows.length ? rows.map((row) => (
                   <tr key={row.event_id} className="transition hover:bg-[#faf9f6]">
                     <td className="px-5 py-4 font-bold sm:px-7">{row.event_title}</td>
                     <td className="px-5 py-4 text-ink/55">{row.venue_name}<span className="mt-1 block text-[10px]">{row.location}</span></td>
-                    <td className="px-5 py-4 text-ink/55">{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(row.start_time))}</td>
+                    <td suppressHydrationWarning={true} className="px-5 py-4 text-ink/55">{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(row.start_time))}</td>
                     <td className="px-5 py-4 text-right font-bold">{Number(row.tickets_sold).toLocaleString("en-US")}</td>
-                    <td className="px-5 py-4 text-right font-black sm:px-7">{formatINR(row.total_revenue)}</td>
+                    <td suppressHydrationWarning={true} className="px-5 py-4 text-right font-black sm:px-7">{formatINR(row.total_revenue)}</td>
+                    <td className="px-5 py-4 sm:px-7">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/admin/events?edit=${encodeURIComponent(row.event_id)}`}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-black/15 px-3 text-[10px] font-bold transition hover:border-ink"
+                          aria-label={`Edit ${row.event_title}`}
+                        >
+                          <Pencil size={12} /> Edit
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void deleteEvent(row)}
+                          disabled={loading || Boolean(deletingEventId)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-200 px-3 text-[10px] font-bold text-red-700 transition hover:border-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Delete ${row.event_title}`}
+                        >
+                          <Trash2 size={12} /> {deletingEventId === row.event_id ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={5} className="px-7 py-12 text-center text-[12px] font-medium text-ink/45">No event sales to show yet.</td></tr>
+                  <tr><td colSpan={6} className="px-7 py-12 text-center text-[12px] font-medium text-ink/45">No event sales to show yet.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         )}
       </section>
+      {actionError && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">{actionError}</p>}
+      {actionMessage && <p role="status" className="mt-4 rounded-xl bg-lime/25 px-4 py-3 text-[12px] font-semibold text-ink">{actionMessage}</p>}
       <p className="mt-4 text-[10px] leading-5 text-ink/40">Revenue reflects confirmed bookings at each event&apos;s current base ticket price.</p>
     </main>
   );
@@ -128,7 +174,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[18px] border border-black/10 bg-white p-5 sm:p-6">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-ink/40">{label}</p>
-      <p className="mt-4 text-[clamp(1.8rem,4vw,2.8rem)] font-black leading-none tracking-[-0.07em]">{value}</p>
+      <p suppressHydrationWarning={true} className="mt-4 text-[clamp(1.8rem,4vw,2.8rem)] font-black leading-none tracking-[-0.07em]">{value}</p>
     </div>
   );
 }

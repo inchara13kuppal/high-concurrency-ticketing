@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Check, ImagePlus, LoaderCircle, Plus } from "lucide-react";
 
 type VenueOption = {
@@ -36,9 +36,47 @@ const emptyForm: EventFormState = {
 export function AdminEventForm({ venues }: { venues: VenueOption[] }) {
   const [form, setForm] = useState<EventFormState>(emptyForm);
   const [busy, setBusy] = useState(false);
+  const [loadingEvent, setLoadingEvent] = useState(false);
+  const [editId, setEditId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const selectedVenue = venues.find((venue) => venue.venue_id === form.venue_id);
+
+  useEffect(() => {
+    const eventId = new URLSearchParams(window.location.search).get("edit");
+    if (!eventId) return;
+
+    setEditId(eventId);
+    setLoadingEvent(true);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/events/${encodeURIComponent(eventId)}`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load this event.");
+        const event = data.event;
+        if (!event) throw new Error("Could not load this event.");
+
+        const startTime = new Date(event.start_time);
+        const localStartTime = new Date(startTime.getTime() - startTime.getTimezoneOffset() * 60_000)
+          .toISOString()
+          .slice(0, 16);
+        setForm({
+          title: event.title ?? "",
+          venue_id: event.venue_id ?? "",
+          start_time: localStartTime,
+          base_price: String(event.base_price ?? ""),
+          total_capacity: String(event.total_capacity ?? ""),
+          images: Array.isArray(event.images) ? event.images.join("\n") : event.image_url ?? "",
+          director: event.director ?? "",
+          lead_artists: Array.isArray(event.lead_artists) ? event.lead_artists.join(", ") : "",
+        });
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Could not load this event.");
+      } finally {
+        setLoadingEvent(false);
+      }
+    })();
+  }, []);
 
   function update(field: keyof EventFormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -68,8 +106,10 @@ export function AdminEventForm({ venues }: { venues: VenueOption[] }) {
 
     setBusy(true);
     try {
-      const response = await fetch("/api/admin/events", {
-        method: "POST",
+      const response = await fetch(
+        editId ? `/api/admin/events/${encodeURIComponent(editId)}` : "/api/admin/events",
+        {
+        method: editId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title.trim(),
@@ -84,12 +124,16 @@ export function AdminEventForm({ venues }: { venues: VenueOption[] }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not create the event.");
-      setSuccess("Event created. Its ticket inventory is ready.");
-      setForm((current) => ({
-        ...emptyForm,
-        venue_id: current.venue_id,
-        total_capacity: current.total_capacity,
-      }));
+      if (editId) {
+        setSuccess("Event updated.");
+      } else {
+        setSuccess("Event created. Its ticket inventory is ready.");
+        setForm((current) => ({
+          ...emptyForm,
+          venue_id: current.venue_id,
+          total_capacity: current.total_capacity,
+        }));
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not create the event.");
     } finally {
@@ -104,12 +148,13 @@ export function AdminEventForm({ venues }: { venues: VenueOption[] }) {
       </Link>
       <div className="mt-8">
         <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-ink/45">Seatline / Admin</p>
-        <h1 className="text-[clamp(2.7rem,6vw,5rem)] font-black leading-[0.88] tracking-[-0.08em]">Add an event.</h1>
+        <h1 className="text-[clamp(2.7rem,6vw,5rem)] font-black leading-[0.88] tracking-[-0.08em]">{editId ? "Edit event." : "Add an event."}</h1>
         <p className="mt-4 max-w-[620px] text-sm leading-6 text-ink/55">
           Event title, venue, schedule, price, and capacity are stored in PostgreSQL. Images and film credits are stored in MongoDB.
         </p>
       </div>
 
+      {loadingEvent && <p role="status" className="mt-6 text-sm font-semibold text-ink/55">Loading event details…</p>}
       <form onSubmit={(event) => void submit(event)} className="mt-8 grid gap-5 rounded-[20px] border border-black/10 bg-white p-5 sm:grid-cols-2 sm:p-8">
         <label className="space-y-2 text-[11px] font-bold text-ink/65 sm:col-span-2">
           Event title
@@ -223,11 +268,11 @@ export function AdminEventForm({ venues }: { venues: VenueOption[] }) {
           <p className="text-[10px] leading-5 text-ink/40">The selected venue&apos;s capacity is used to initialize this event&apos;s available seats.</p>
           <button
             type="submit"
-            disabled={busy || !venues.length}
+            disabled={busy || loadingEvent || !venues.length}
             className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-ink px-6 text-[12px] font-black text-white transition hover:bg-black/75 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Plus size={15} />}
-            {busy ? "Creating event…" : "Create event"}
+            {busy ? (editId ? "Saving changes…" : "Creating event…") : (editId ? "Save changes" : "Create event")}
           </button>
         </div>
       </form>

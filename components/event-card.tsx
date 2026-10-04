@@ -33,7 +33,7 @@ export function EventCard({ event, index = 0 }: { event: EventRecord; index?: nu
             </span>
           </div>
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em]">
+        <span suppressHydrationWarning={true} className="absolute left-3 top-3 rounded-full bg-paper px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em]">
           {formatDate(event.start_time)}
         </span>
         <span className="absolute bottom-3 right-3 grid h-10 w-10 translate-y-2 place-items-center rounded-full bg-lime opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
@@ -48,7 +48,7 @@ export function EventCard({ event, index = 0 }: { event: EventRecord; index?: nu
             <span className="truncate">{event.venue_name} · {event.location}</span>
           </div>
         </div>
-        <p className="shrink-0 pt-0.5 text-[12px] font-bold text-ink/80">
+        <p suppressHydrationWarning={true} className="shrink-0 pt-0.5 text-[12px] font-bold text-ink/80">
           {formatINR(event.base_price)}<span className="font-medium text-ink/45">+</span>
         </p>
       </div>
