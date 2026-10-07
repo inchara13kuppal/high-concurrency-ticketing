@@ -219,9 +219,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
           SET venue_id = $2,
               title = $3,
               start_time = $4,
-              base_price = $5,
-              total_capacity = $6,
-              available_seats = $6::int - $7::int
+              base_price = CAST($5 AS NUMERIC),
+              total_capacity = CAST($6 AS INTEGER),
+              available_seats = CAST($6 AS INTEGER) - CAST($7 AS INTEGER)
         WHERE event_id = $1`,
       [id, input.venueId, input.title, input.startTime.toISOString(), input.basePrice, input.totalCapacity, ticketsSold],
     );
