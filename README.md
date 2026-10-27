@@ -31,8 +31,7 @@ Handles all strict, structured financial and transactional data.
 Handles unstructured, dynamic data that varies from event to event (e.g., movies vs. concerts).
 
 * **Collections:**
-* `event_details`: Stores dynamic JSON metadata including images, cast, directors, music directors, and FAQs.
-* `reviews`: Stores read-heavy, high-volume user feedback and ratings.
+* `event_details`: Stores dynamic JSON metadata including images, directors.
 
 
 
