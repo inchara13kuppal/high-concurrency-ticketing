@@ -1,0 +1,20 @@
+{
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "ep-winter-heart-b4zgcz9x-pooler.c-6.us-east-2.aws.neon.tech",
+            "port": 5432,
+            "askForPassword": true,
+            "driver": "PostgreSQL",
+            "database": "neondb",
+            "name": "Seatline PostgreSQL",
+            "username": "neondb_owner"
+        }
+    ]
+}
